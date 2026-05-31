@@ -1,25 +1,25 @@
-# Security Policy
+# セキュリティポリシー
 
-## Do Not Commit Secrets
+## シークレットをコミットしない
 
-Never commit real values for:
+以下の実値はコミットしないでください：
 
-- API keys
-- OAuth client secrets
-- n8n credentials
-- Slack bot tokens
-- webhook URLs from production workflows
-- private hostnames, internal IP addresses, or personal domains
+- APIキー
+- OAuth クライアントシークレット
+- n8n クレデンシャル
+- Slack bot トークン
+- 本番ワークフローの webhook URL
+- プライベートホスト名・内部IPアドレス・個人ドメイン
 
-Use `.env.example` only as a template. Copy it to `.env` locally and replace placeholder values there.
+`.env.example` はテンプレートとしてのみ使用してください。ローカルでは `.env` にコピーしてプレースホルダーを実値に置き換えてください。
 
-## Notes
+## 注意事項
 
-- Replace `POSTGRES_PASSWORD=change-me` before running outside a throwaway local environment.
-- Use HTTPS for public webhook endpoints.
-- Review exported n8n workflow JSON before publishing. n8n exports may include IDs and metadata from your instance.
-- Prefer n8n's credential store over hardcoded secrets in workflow nodes.
+- ローカル以外の環境で動かす場合は `POSTGRES_PASSWORD=change-me` を必ず変更してください。
+- 公開用 webhook エンドポイントには HTTPS を使用してください。
+- n8n の workflow JSON をエクスポートして公開する前に、インスタンス固有の ID やメタデータが含まれていないか確認してください。
+- ワークフローノードにシークレットをハードコードせず、n8n のクレデンシャルストアを使用してください。
 
-## Reporting Security Issues
+## セキュリティ上の問題を報告する
 
-Please open a private security advisory or contact the maintainer directly if you find a secret or unsafe default in this repository.
+このリポジトリにシークレットや安全でないデフォルト値を発見した場合は、プライベートセキュリティアドバイザリを作成するか、メンテナーに直接ご連絡ください。
