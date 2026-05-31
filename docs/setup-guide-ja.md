@@ -2,6 +2,14 @@
 
 このガイドでは、ローカル環境でn8nを起動し、`workflows/` 配下のサンプルworkflowをインポートする手順を説明します。
 
+## 検証環境
+
+- n8n `2.56.0`
+- PostgreSQL 16 (alpine)
+- Docker Compose
+
+n8nはバージョン更新が速く、特にAI/LangChain系ノードは仕様が変わることがあります。上記より新しいバージョンでimportする場合、一部ノードの再設定が必要になる場合があります。
+
 ## 必要なもの
 
 - Docker Desktop または Docker Engine

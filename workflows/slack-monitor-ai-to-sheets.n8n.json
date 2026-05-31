@@ -6,7 +6,10 @@
       "name": "Check Every 15 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -23,7 +26,10 @@
       "name": "Get Slack Messages",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [240, 0],
+      "position": [
+        240,
+        0
+      ],
       "parameters": {
         "resource": "message",
         "operation": "getAll",
@@ -45,7 +51,10 @@
       "name": "Filter New Messages",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 0],
+      "position": [
+        480,
+        0
+      ],
       "parameters": {
         "jsCode": "const wf = $getWorkflowStaticData('global');\nconst lastTs = Number(wf.lastSlackTs || 0);\nconst messages = items\n  .map(item => item.json || {})\n  .filter(message => String(message.text || '').trim())\n  .filter(message => !message.bot_id || String(message.subtype || '') !== 'bot_message')\n  .map(message => {\n    const tsNumber = Number(message.ts || message.messageTs || 0);\n    return {\n      tsNumber,\n      ts: String(message.ts || ''),\n      channel: String(message.channel || 'YOUR_SLACK_CHANNEL_ID'),\n      user: String(message.user || message.username || 'unknown'),\n      text: String(message.text || '').trim(),\n      permalink: String(message.permalink || message.messageLink || '')\n    };\n  })\n  .filter(message => message.tsNumber > lastTs)\n  .sort((a, b) => a.tsNumber - b.tsNumber)\n  .slice(0, 20);\nif (messages.length > 0) {\n  wf.lastSlackTs = String(Math.max(...messages.map(message => message.tsNumber)));\n}\nreturn messages.map(message => ({ json: message }));"
       }
@@ -55,7 +64,10 @@
       "name": "AI Judge Slack Post",
       "type": "@n8n/n8n-nodes-langchain.ollama",
       "typeVersion": 1,
-      "position": [720, 0],
+      "position": [
+        720,
+        0
+      ],
       "parameters": {
         "modelId": {
           "__rl": true,
@@ -82,7 +94,10 @@
       "name": "Parse AI Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 0],
+      "position": [
+        960,
+        0
+      ],
       "parameters": {
         "mode": "runOnceForEachItem",
         "jsCode": "const raw = String($json.content || $json.response || $json.message?.content || '').trim();\nlet src = {};\ntry { src = $('Filter New Messages').item.json || {}; } catch (e) { src = {}; }\nconst grab = label => {\n  const re = new RegExp(label + '\\\\s*[:：]\\\\s*([^\\\\n\\\\r]+)', 'i');\n  const m = raw.match(re);\n  return m ? m[1].trim() : '';\n};\nconst importance = /high/i.test(grab('重要度')) ? 'High' : 'Low';\nlet category = grab('カテゴリ') || 'その他';\nconst allowed = ['重要連絡', 'イベント', 'タスク', '質問', '期限', 'その他'];\nif (!allowed.includes(category)) category = 'その他';\nconst summary = (grab('要約') || src.text || '').replace(/[\\r\\n]+/g, ' ').slice(0, 300);\nconst action = (grab('行動') || '').replace(/[\\r\\n]+/g, ' ').trim() || (importance === 'High' ? '確認する' : 'なし');\nconst deadline = (grab('期限') || '不明').replace(/[\\r\\n]+/g, ' ').trim();\nreturn { ...src, processed: 'true', importance, category, summary, action, deadline, createdAt: new Date().toISOString() };"
@@ -93,7 +108,10 @@
       "name": "Important?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1200, 0],
+      "position": [
+        1200,
+        0
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -123,7 +141,10 @@
       "name": "Notify Important Post",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [1440, -100],
+      "position": [
+        1440,
+        -100
+      ],
       "parameters": {
         "resource": "message",
         "operation": "post",
@@ -147,21 +168,79 @@
       "name": "Shape Sheet Log Row",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1680, 0],
+      "position": [
+        1680,
+        0
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
-            { "id": "timestamp", "name": "Timestamp", "value": "={{ $json.createdAt }}", "type": "string" },
-            { "id": "slack-ts", "name": "SlackTs", "value": "={{ $json.ts }}", "type": "string" },
-            { "id": "channel", "name": "Channel", "value": "={{ $json.channel }}", "type": "string" },
-            { "id": "user", "name": "User", "value": "={{ $json.user }}", "type": "string" },
-            { "id": "text", "name": "Text", "value": "={{ $json.text }}", "type": "string" },
-            { "id": "importance", "name": "Importance", "value": "={{ $json.importance }}", "type": "string" },
-            { "id": "category", "name": "Category", "value": "={{ $json.category }}", "type": "string" },
-            { "id": "summary", "name": "Summary", "value": "={{ $json.summary }}", "type": "string" },
-            { "id": "action", "name": "Action", "value": "={{ $json.action }}", "type": "string" },
-            { "id": "deadline", "name": "Deadline", "value": "={{ $json.deadline }}", "type": "string" },
-            { "id": "permalink", "name": "Permalink", "value": "={{ $json.permalink }}", "type": "string" }
+            {
+              "id": "timestamp",
+              "name": "Timestamp",
+              "value": "={{ $json.createdAt }}",
+              "type": "string"
+            },
+            {
+              "id": "slack-ts",
+              "name": "SlackTs",
+              "value": "={{ $json.ts }}",
+              "type": "string"
+            },
+            {
+              "id": "channel",
+              "name": "Channel",
+              "value": "={{ $json.channel }}",
+              "type": "string"
+            },
+            {
+              "id": "user",
+              "name": "User",
+              "value": "={{ $json.user }}",
+              "type": "string"
+            },
+            {
+              "id": "text",
+              "name": "Text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "importance",
+              "name": "Importance",
+              "value": "={{ $json.importance }}",
+              "type": "string"
+            },
+            {
+              "id": "category",
+              "name": "Category",
+              "value": "={{ $json.category }}",
+              "type": "string"
+            },
+            {
+              "id": "summary",
+              "name": "Summary",
+              "value": "={{ $json.summary }}",
+              "type": "string"
+            },
+            {
+              "id": "action",
+              "name": "Action",
+              "value": "={{ $json.action }}",
+              "type": "string"
+            },
+            {
+              "id": "deadline",
+              "name": "Deadline",
+              "value": "={{ $json.deadline }}",
+              "type": "string"
+            },
+            {
+              "id": "permalink",
+              "name": "Permalink",
+              "value": "={{ $json.permalink }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -172,7 +251,10 @@
       "name": "Append Result to Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
-      "position": [1920, 0],
+      "position": [
+        1920,
+        0
+      ],
       "parameters": {
         "operation": "append",
         "documentId": {
@@ -199,35 +281,151 @@
       "maxTries": 2,
       "waitBetweenTries": 3000,
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 👀 Slack監視 → AI分類 → Sheets\n\n15分ごとにSlackチャンネルを読み、Ollamaで重要度・カテゴリ・要約を作成。重要投稿だけSlack通知し、結果をSheetsへ追記します。\n\n**事前設定**: Slack / Ollama / Google Sheets のcredentialと、`YOUR_SLACK_CHANNEL_ID`・`YOUR_SLACK_ALERT_CHANNEL_ID`・`YOUR_GOOGLE_SHEET_ID` を置き換え。",
+        "height": 210,
+        "width": 720,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -360
+      ],
+      "id": "5e24aaf3-503a-41cc-b149-76fd44881ee8",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 🦙 AI分類\nOllamaが各投稿を重要度・カテゴリ・要約に分解。\n`Parse AI Result` でJSON化します。",
+        "height": 160,
+        "width": 360,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        660,
+        -360
+      ],
+      "id": "7b55820e-3dff-4d70-a04b-b2ccf2db8c59",
+      "name": "Sticky Note 2"
+    },
+    {
+      "parameters": {
+        "content": "### 🔀 アラート分岐\n`Important?` がtrueの投稿だけ\nアラート用チャンネルへ通知します。",
+        "height": 160,
+        "width": 360,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        -360
+      ],
+      "id": "c1c941cc-0cdb-4930-a0fe-478dc7dd569e",
+      "name": "Sticky Note 3"
     }
   ],
   "connections": {
     "Check Every 15 Minutes": {
-      "main": [[{ "node": "Get Slack Messages", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Get Slack Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Slack Messages": {
-      "main": [[{ "node": "Filter New Messages", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Filter New Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filter New Messages": {
-      "main": [[{ "node": "AI Judge Slack Post", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "AI Judge Slack Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "AI Judge Slack Post": {
-      "main": [[{ "node": "Parse AI Result", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse AI Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse AI Result": {
-      "main": [[{ "node": "Important?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Important?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Important?": {
       "main": [
-        [{ "node": "Notify Important Post", "type": "main", "index": 0 }],
-        [{ "node": "Shape Sheet Log Row", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Notify Important Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shape Sheet Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Notify Important Post": {
-      "main": [[{ "node": "Shape Sheet Log Row", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Shape Sheet Log Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Shape Sheet Log Row": {
-      "main": [[{ "node": "Append Result to Sheets", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Append Result to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {

@@ -4,6 +4,8 @@
 
 Gmail、Slack、Google Calendar、Google Tasks、Google Sheets、Ollamaを組み合わせた、インポートして試せるn8n workflowサンプルをまとめています。
 
+> **検証環境**: n8n `2.56.0` で動作確認しています（PostgreSQL 16 / Docker）。
+
 ## Features
 
 - n8nをDockerで動かすための最小構成サンプル
@@ -29,12 +31,7 @@ Gmail、Slack、Google Calendar、Google Tasks、Google Sheets、Ollamaを組み
 
 1. `.env.example` をコピーして `.env` を作成します。
 2. 必要な値を自分の環境に合わせて設定します。
-3. n8nを起動します。
-
-```bash
-docker compose -f docker-compose.example.yml up -d
-```
-
+3. n8nを起動します（`docker compose -f docker-compose.example.yml up -d`）。
 4. `http://localhost:5678` にアクセスします。
 5. `workflows/` 配下のサンプルをn8nにインポートします。
 
@@ -47,23 +44,35 @@ docker compose -f docker-compose.example.yml up -d
 - Slackに書いたタスクをGoogle Sheetsやカレンダーに登録
 - Slackチャンネルの投稿をAIで要約し、重要なものだけ通知
 
-## Screenshots
+## Included Workflows
 
-### Slack task command workflow
+各workflowはimport後、ノードごとにcredentialを割り当て、`YOUR_...` などのプレースホルダー値を自分の環境に置き換えてから使ってください。
 
-n8nにインポートしたworkflow例です。実行前にcredentialとプレースホルダー値を設定してください。
+### gmail-ai-summary-to-slack-sheets
+
+Gmailの未読メールを定期取得し、Ollamaで重要度判定・要約します。重要メールはSlackへ通知し、結果をGoogle Sheetsへログ保存します。
+
+![Gmail AI summary workflow](docs/images/gmail-ai-summary-workflow.png)
+
+### slack-task-to-google-tasks-calendar
+
+Slack slash commandを署名検証し、タスクをGoogle Tasksへ登録します。メッセージに時刻が含まれていればGoogle Calendarにも予定を作成します。
 
 ![Slack task command workflow](docs/images/slack-task-workflow.png)
 
-## Included Workflows
+### morning-slack-secretary
 
-| File | What it does |
-| --- | --- |
-| `gmail-ai-summary-to-slack-sheets.n8n.json` | Gmailの未読メールを取得し、Ollamaで重要度判定・要約し、重要メールをSlack通知してSheetsへログ保存します。 |
-| `slack-task-to-google-tasks-calendar.n8n.json` | Slack slash commandを署名検証し、タスクをGoogle Tasksへ登録します。時刻つきならGoogle Calendarにも登録します。 |
-| `morning-slack-secretary.n8n.json` | 毎朝、Google Calendarの今日の予定とGoogle TasksのTop3をSlackへ通知します。 |
-| `slack-monitor-ai-to-sheets.n8n.json` | Slackチャンネルを直接読み、Ollamaで重要度・カテゴリ・要約を作成し、重要投稿をSlack通知して結果をSheetsへ追記します。 |
-| `slack-daily-digest-starter.n8n.json` | Slackメッセージ取得の最小スターターです。 |
+毎朝、Google Calendarの今日の予定とGoogle TasksのTop3をまとめてSlackへ通知します。
+
+![Morning Slack secretary workflow](docs/images/morning-secretary-workflow.png)
+
+### slack-monitor-ai-to-sheets
+
+Slackチャンネルを直接読み、Ollamaで重要度・カテゴリ・要約を作成します。重要投稿をSlack通知し、結果をGoogle Sheetsへ追記します。
+
+### slack-daily-digest-starter
+
+Slackメッセージ取得の最小スターターです（2ノード）。n8nの基本動作を確認する入り口として使えます。
 
 ## License
 

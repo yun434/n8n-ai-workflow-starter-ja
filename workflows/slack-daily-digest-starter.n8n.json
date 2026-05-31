@@ -41,6 +41,22 @@
         420,
         300
       ]
+    },
+    {
+      "parameters": {
+        "content": "## 🟢 最小スターター (2ノード)\n\nScheduleで定期実行し、Slackからメッセージを取得するだけの最小構成。\nn8nの基本動作を確認する入り口として使ってください。\n\n**事前設定**: Slack credential と `YOUR_SLACK_CHANNEL_ID`。",
+        "height": 180,
+        "width": 520,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        120,
+        80
+      ],
+      "id": "dc0f42ff-ce52-4ba3-92c0-d316466981de",
+      "name": "Sticky Note"
     }
   ],
   "connections": {
