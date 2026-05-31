@@ -47,6 +47,12 @@ docker compose -f docker-compose.example.yml up -d
 - Slackに書いたタスクをGoogle Sheetsやカレンダーに登録
 - Slackチャンネルの投稿をAIで要約し、重要なものだけ通知
 
+## Screenshots
+
+### Slack task command workflow
+
+![Slack task command workflow](docs/images/slack-task-workflow.png)
+
 ## Included Workflows
 
 | File | What it does |
