@@ -51,6 +51,8 @@ docker compose -f docker-compose.example.yml up -d
 
 ### Slack task command workflow
 
+Imported workflow example. Configure credentials and placeholder values before running.
+
 ![Slack task command workflow](docs/images/slack-task-workflow.png)
 
 ## Included Workflows
