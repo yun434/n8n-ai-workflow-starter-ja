@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+
+node_modules/
+.DS_Store
+
+# n8n local data and exports that may contain credentials
+.n8n/
+n8n-data/
+credentials*.json
+*credentials*.json
+*.backup
+
+# Logs
+*.log

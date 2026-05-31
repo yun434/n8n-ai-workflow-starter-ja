@@ -1,0 +1,64 @@
+{
+  "name": "Slack Daily Digest Starter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "channelId": {
+          "__rl": true,
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "mode": "id",
+          "cachedResultName": "replace-with-your-channel-name"
+        },
+        "limit": 50
+      },
+      "id": "slack-get-messages",
+      "name": "Slack - Get Messages",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        420,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Slack - Get Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}

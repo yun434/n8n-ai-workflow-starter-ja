@@ -1,0 +1,236 @@
+{
+  "name": "Gmail AI Summary to Slack and Sheets",
+  "nodes": [
+    {
+      "id": "schedule-gmail-poll",
+      "name": "Check Gmail Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "gmail-get-unread",
+      "name": "Get Unread Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [240, 0],
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": false,
+        "limit": 10,
+        "filters": {
+          "q": "is:unread newer_than:1d"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "format-email",
+      "name": "Format Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 0],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const msg = $json;\nconst headers = msg.payload?.headers || [];\nconst getHeader = name => (headers.find(h => String(h.name || '').toLowerCase() === name.toLowerCase()) || {}).value || '';\nconst decodeB64Url = data => {\n  if (!data) return '';\n  try { return Buffer.from(String(data).replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8'); }\n  catch (e) { return ''; }\n};\nconst stripHtml = html => String(html).replace(/<style[\\s\\S]*?<\\/style>/gi, ' ').replace(/<script[\\s\\S]*?<\\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\\s+/g, ' ').trim();\nlet plain = '';\nlet html = '';\nconst walk = part => {\n  if (!part) return;\n  const mime = part.mimeType || '';\n  const data = part.body?.data;\n  if (mime === 'text/plain' && data && !plain) plain = decodeB64Url(data);\n  if (mime === 'text/html' && data && !html) html = decodeB64Url(data);\n  if (Array.isArray(part.parts)) part.parts.forEach(walk);\n};\nwalk(msg.payload);\nlet text = plain || (html ? stripHtml(html) : '') || msg.snippet || '';\ntext = text.replace(/\\r/g, '').trim().slice(0, 4000);\nreturn {\n  id: msg.id || msg.messageId || '',\n  subject: msg.subject || getHeader('Subject') || '(no subject)',\n  from: msg.from || getHeader('From') || '',\n  snippet: msg.snippet || '',\n  text\n};"
+      }
+    },
+    {
+      "id": "ollama-email-judge",
+      "name": "AI Judge and Summarize",
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [720, 0],
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "llama3.2"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an email triage assistant. Read the email and return exactly three labeled lines in Japanese.\\n\\nSubject: {{ $json.subject }}\\nFrom: {{ $json.from }}\\nBody: {{ ($json.text || '').substring(0, 2000) }}\\n\\nRules:\\n- Reply-required, school/work, deadline, billing, account, or official notice -> High\\n- Ads, coupons, newsletters, FYI-only messages -> Low\\n\\n重要度: High または Low\\n要約: 30〜80字で1文\\n行動: 必要な行動。不要なら「なし」"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0,
+          "think": false,
+          "num_predict": 200
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "parse-ai-email-result",
+      "name": "Parse AI Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 0],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = String($json.content || $json.response || $json.message?.content || '').trim();\nlet mail = {};\ntry { mail = $('Format Email').item.json || {}; } catch (e) { mail = {}; }\nconst grab = label => {\n  const re = new RegExp(label + '\\\\s*[:：]\\\\s*([^\\\\n\\\\r]+)', 'i');\n  const m = raw.match(re);\n  return m ? m[1].trim() : '';\n};\nconst urgency = /high/i.test(grab('重要度')) ? 'High' : 'Low';\nconst summary = (grab('要約') || mail.subject || '').replace(/[\\r\\n]+/g, ' ').slice(0, 200);\nconst action = (grab('行動') || '').replace(/[\\r\\n]+/g, ' ').trim();\nreturn { ...mail, urgency, summary, action: action || (urgency === 'High' ? '確認する' : 'なし'), category: urgency === 'High' ? 'Important' : 'Other', timestamp: new Date().toISOString() };"
+      }
+    },
+    {
+      "id": "if-important-email",
+      "name": "Important?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1200, 0],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "urgency-high",
+              "leftValue": "={{ $json.urgency }}",
+              "rightValue": "High",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "slack-important-email",
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [1440, -100],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "cachedResultName": "replace-with-your-channel-name"
+        },
+        "text": "=📬 *Important Email*\\n*Summary:* {{ $json.summary }}\\n*From:* {{ $json.from || 'unknown' }}\\n*Action:* {{ $json.action || 'none' }}",
+        "otherOptions": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "shape-log-row",
+      "name": "Shape Log Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1680, 0],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "timestamp", "name": "Timestamp", "value": "={{ $json.timestamp }}", "type": "string" },
+            { "id": "message-id", "name": "MessageId", "value": "={{ $json.id }}", "type": "string" },
+            { "id": "subject", "name": "Subject", "value": "={{ $json.subject }}", "type": "string" },
+            { "id": "from", "name": "From", "value": "={{ $json.from }}", "type": "string" },
+            { "id": "summary", "name": "Summary", "value": "={{ $json.summary }}", "type": "string" },
+            { "id": "urgency", "name": "Urgency", "value": "={{ $json.urgency }}", "type": "string" },
+            { "id": "action", "name": "Action", "value": "={{ $json.action }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "append-email-log",
+      "name": "Append Log to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1920, 0],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "cachedResultName": "replace-with-your-sheet-name"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gid=0",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {}
+        },
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Check Gmail Every 15 Minutes": {
+      "main": [[{ "node": "Get Unread Gmail", "type": "main", "index": 0 }]]
+    },
+    "Get Unread Gmail": {
+      "main": [[{ "node": "Format Email", "type": "main", "index": 0 }]]
+    },
+    "Format Email": {
+      "main": [[{ "node": "AI Judge and Summarize", "type": "main", "index": 0 }]]
+    },
+    "AI Judge and Summarize": {
+      "main": [[{ "node": "Parse AI Result", "type": "main", "index": 0 }]]
+    },
+    "Parse AI Result": {
+      "main": [[{ "node": "Important?", "type": "main", "index": 0 }]]
+    },
+    "Important?": {
+      "main": [
+        [{ "node": "Notify Slack", "type": "main", "index": 0 }],
+        [{ "node": "Shape Log Row", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notify Slack": {
+      "main": [[{ "node": "Shape Log Row", "type": "main", "index": 0 }]]
+    },
+    "Shape Log Row": {
+      "main": [[{ "node": "Append Log to Sheets", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Tokyo",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "staticData": null,
+  "pinData": {}
+}
