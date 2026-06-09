@@ -4,7 +4,7 @@
 
 Gmail、Slack、Google Calendar、Google Tasks、Google Sheets、Ollamaを組み合わせた、インポートして試せるn8n workflowサンプルをまとめています。
 
-> **検証環境**: n8n `2.56.0` で動作確認しています（PostgreSQL 16 / Docker）。
+> **検証環境**: n8n `2.23.4` で動作確認しています（PostgreSQL 18 / Docker）。
 
 ## Features
 
