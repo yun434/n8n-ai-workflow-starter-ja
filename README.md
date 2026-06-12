@@ -24,7 +24,8 @@ Gmail、Slack、Google Calendar、Google Tasks、Google Sheets、Ollamaを組み
 │   ├── morning-slack-secretary.n8n.json
 │   ├── slack-monitor-ai-to-sheets.n8n.json
 │   ├── slack-daily-digest-starter.n8n.json
-│   └── slack-task-to-google-tasks-calendar.n8n.json
+│   ├── slack-task-to-google-tasks-calendar.n8n.json
+│   └── slack-url-ai-summary.n8n.json
 ```
 
 ## Quick Start
@@ -43,6 +44,7 @@ Gmail、Slack、Google Calendar、Google Tasks、Google Sheets、Ollamaを組み
 - Gmailの重要メールをAIで要約してSlackへ転送
 - Slackに書いたタスクをGoogle Sheetsやカレンダーに登録
 - Slackチャンネルの投稿をAIで要約し、重要なものだけ通知
+- URLを渡すと、ページ本文をAIで要約してSlackへ投稿
 
 ## Included Workflows
 
@@ -73,6 +75,10 @@ Slackチャンネルを直接読み、Ollamaで重要度・カテゴリ・要約
 ### slack-daily-digest-starter
 
 Slackメッセージ取得の最小スターターです（2ノード）。n8nの基本動作を確認する入り口として使えます。
+
+### slack-url-ai-summary
+
+`Set URL` にURLを入れて手動実行すると、ページ本文を取得し、Ollamaで要約・カテゴリ判定してSlackへ投稿します。手動トリガーなので、importしてすぐ単体で試せます。
 
 ## License
 

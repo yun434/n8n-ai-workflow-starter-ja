@@ -1,0 +1,266 @@
+{
+  "name": "Slack URL AI Summary",
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "When clicking Test workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "set-target-url",
+      "name": "Set URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "url",
+              "name": "url",
+              "value": "https://example.com/article",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http-fetch-page",
+      "name": "Fetch Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; n8n-url-summarizer/1.0)"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "extract-page-text",
+      "name": "Extract Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const w=$('Set URL').first().json||{};\nconst url=String(w.summarize_url||w.url||'');\nconst meta=(items[0].binary&&items[0].binary.data)||{};\nconst mime=String(meta.mimeType||'').toLowerCase();\nlet buf; try{ buf=await this.helpers.getBinaryDataBuffer(0,'data'); }catch(e){ buf=Buffer.from(''); }\nlet html=buf.toString('utf8');\nlet title=''; const tm=html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i); if(tm) title=tm[1].replace(/\\s+/g,' ').trim();\nlet text=html.replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<!--[\\s\\S]*?-->/g,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'\"').replace(/&#39;/g,\"'\").replace(/\\s+/g,' ').trim().slice(0,8000);\nreturn [{ json:{ is_image:false, url, title, text, ok:text.length>0 } }];"
+      }
+    },
+    {
+      "id": "ollama-url-summary",
+      "name": "Summarize with Ollama",
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "llama3.2"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ 'あなたはWeb記事の要約担当です。次のページ内容を読み、日本語でSlack向けに簡潔にまとめてください。\\n\\n書式ルール:\\n- 見出しは *見出し* のように単一アスタリスクだけ\\n- **太字**やMarkdownリンク[](url)、番号付きリストは使わない\\n- 箇条書きは「• 」で始める\\n- 本文が空、または取得できていない場合は、要約せず「ページ本文を取得できませんでした」とだけ書く\\n\\n出力形式:\\n*要約*\\n• 要点を3〜5点\\n\\n*読む価値*\\n高 / 中 / 低 のいずれか + 理由を1行\\n\\n*カテゴリ*\\n1語（技術 / ニュース / ツール / 学習 / ビジネス / その他 から）\\n\\nタイトル: ' + $json.title + '\\n本文(抜粋):\\n' + $json.text }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "think": false,
+          "num_predict": 300
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "format-slack-message",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const j=$json; let txt='';\nif (typeof j==='string') txt=j;\nelse if (j.text) txt=j.text;\nelse if (typeof j.content==='string') txt=j.content;\nelse if (j.content && j.content.parts && j.content.parts[0] && j.content.parts[0].text) txt=j.content.parts.map(p=>p.text||'').join('');\nelse if (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) txt=j.candidates[0].content.parts.map(p=>p.text||'').join('');\nelse if (j.message && j.message.content) txt=j.message.content;\nelse if (j.response) txt = (typeof j.response==='string')?j.response:JSON.stringify(j.response);\nelse txt = JSON.stringify(j).slice(0,1500);\nconst src=$('Extract Text').first().json;\nconst title=src.title||'(タイトル取得なし)';\nconst url=src.url||'';\nconst header = url ? ('🔗 *URL要約*  <'+url+'|'+title+'>') : '🔗 *URL要約*';\nreturn [{ json: { slack_text: header+'\\n\\n'+String(txt).trim() } }];"
+      }
+    },
+    {
+      "id": "slack-post-summary",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_SLACK_CHANNEL_ID",
+          "cachedResultName": "replace-with-your-channel-name"
+        },
+        "text": "={{ $json.slack_text }}",
+        "otherOptions": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 🔗 URL → AI要約 → Slack\n\n`Set URL` に要約したいURLを入れて手動実行すると、ページ本文を取得し、Ollamaで要約してSlackへ投稿します。\n\n**事前設定**: Ollama / Slack のcredentialと、`YOUR_SLACK_CHANNEL_ID` を置き換えてください。",
+        "height": 220,
+        "width": 720,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -360
+      ],
+      "id": "sticky-overview",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### 🦙 ここがAI要約\nOllamaにページ本文を渡し、要約・読む価値・カテゴリを生成。\n`Format Slack Message` でSlack向けに整形します。\nモデル例: `ollama pull llama3.2`",
+        "height": 200,
+        "width": 360,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -360
+      ],
+      "id": "sticky-ai",
+      "name": "Sticky Note 2"
+    }
+  ],
+  "connections": {
+    "When clicking Test workflow": {
+      "main": [
+        [
+          {
+            "node": "Set URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set URL": {
+      "main": [
+        [
+          {
+            "node": "Fetch Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text": {
+      "main": [
+        [
+          {
+            "node": "Summarize with Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize with Ollama": {
+      "main": [
+        [
+          {
+            "node": "Format Slack Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Slack Message": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Tokyo",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "staticData": null,
+  "pinData": {}
+}
